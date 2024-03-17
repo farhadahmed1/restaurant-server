@@ -26,21 +26,29 @@ async function run() {
     // Connect the client to the server	(optional starting in v4.7)
     await client.connect();
 
-    // get menu data from the server
+    // all collections
+    const reviewCollection = client.db("restaurantsDB").collection("reviews");
     const menuCollection = client.db("restaurantsDB").collection("menu");
+    const cartsCollection = client.db("restaurantsDB").collection("carts");
+
+    // get menu data from the server
 
     app.get("/menu", async (req, res) => {
       const menu = await menuCollection.find().toArray();
       res.send(menu);
     });
 
-    const reviewCollection = client.db("restaurantsDB").collection("reviews");
-
     app.get("/reviews", async (req, res) => {
       const review = await reviewCollection.find().toArray();
       res.send(review);
     });
 
+    app.post("/carts", async (req, res) => {
+      const cartItem = req.body;
+      const result = await cartsCollection.insertOne(cartItem);
+      res.send(result);
+      // console.log(result);
+    });
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
     console.log(" You successfully connected to MongoDB Boss Server!");
