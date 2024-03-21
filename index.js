@@ -1,6 +1,7 @@
 const express = require("express");
 const app = express();
 require("dotenv").config();
+const jwt = require("jsonwebtoken");
 const cors = require("cors");
 const port = process.env.PORT || 4000;
 
@@ -32,8 +33,51 @@ async function run() {
     const cartsCollection = client.db("restaurantsDB").collection("carts");
     const userCollection = client.db("restaurantsDB").collection("users");
 
-    // user collection
+    // jwt authentication
+    app.post("/jwt", async (req, res) => {
+      const user = req.body;
+      // insert
+      const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {
+        expiresIn: "1h",
+      });
+      res.send({ token });
+    });
+    // middleware
+    const verifyToken = (req, res, next) => {
+      // console.log("inside verify token", req.headers.authorization);
+      if (!req.headers.authorization) {
+        return res.status(401).send({ message: "Unauthorized access" });
+      }
+      const token = req.headers.authorization.split(" ")[1];
+      jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
+        if (err) {
+          return res.status(401).send({ message: "Unauthorized access" });
+        }
+        req.decoded = decoded;
+        next();
+      });
+    };
 
+    // verify admin after  authorization(verify token)
+
+    const verifyAdmin = async (req, res, next) => {
+      const email = req.decoded.email;
+      const query = { email: email };
+      const user = await userCollection.findOne(query);
+      const isAdmin = user?.role === "admin";
+
+      if (isAdmin) {
+        return res.status(403).send({ message: "forbidden access" });
+      }
+      next();
+    };
+    //get all users collection
+    app.get("/users", verifyToken, async (req, res) => {
+      const users = await userCollection.find().toArray();
+      console.log(users);
+      res.send(users);
+    });
+    // user collection API
     app.post("/users", async (req, res) => {
       const user = req.body;
       // insert email if user does not exist :
@@ -45,16 +89,57 @@ async function run() {
       const result = await userCollection.insertOne(user);
       res.send(result);
     });
+
+    // get admin collection
+    app.get("/users/admin/:email", verifyToken, async (req, res) => {
+      const email = req.params.email;
+      if (email !== req.decoded.email) {
+        return res.status(401).send({ message: "forbidden access" });
+      }
+      const query = { email: email };
+      const user = await userCollection.findOne(query);
+      let admin = false;
+      if (user) {
+        admin = user?.role === "admin";
+      }
+      res.send({ admin });
+    });
+
+    // make admin account
+    app.patch("/users/admin/:id", verifyToken, async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      console.log(query);
+      const updateDocument = {
+        $set: {
+          role: "admin",
+        },
+      };
+      const result = await userCollection.updateOne(query, updateDocument);
+      console.log(result);
+      res.send(result);
+    });
+    // delete users
+    app.delete("/users/:id", verifyToken, async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await userCollection.deleteOne(query);
+      res.send(result);
+    });
+
     // get menu data from the server
     app.get("/menu", async (req, res) => {
       const menu = await menuCollection.find().toArray();
       res.send(menu);
     });
-
+    // reviews
     app.get("/reviews", async (req, res) => {
       const review = await reviewCollection.find().toArray();
       res.send(review);
     });
+
+    // cart data
+
     app.get("/carts", async (req, res) => {
       const email = req.query.email;
       const query = { email: email };
