@@ -65,14 +65,13 @@ async function run() {
       const query = { email: email };
       const user = await userCollection.findOne(query);
       const isAdmin = user?.role === "admin";
-
-      if (isAdmin) {
+      if (!isAdmin) {
         return res.status(403).send({ message: "forbidden access" });
       }
       next();
     };
     //get all users collection
-    app.get("/users", verifyToken, async (req, res) => {
+    app.get("/users", verifyToken, verifyAdmin, async (req, res) => {
       const users = await userCollection.find().toArray();
       console.log(users);
       res.send(users);
@@ -93,6 +92,7 @@ async function run() {
     // get admin collection
     app.get("/users/admin/:email", verifyToken, async (req, res) => {
       const email = req.params.email;
+      //
       if (email !== req.decoded.email) {
         return res.status(401).send({ message: "forbidden access" });
       }
@@ -106,21 +106,26 @@ async function run() {
     });
 
     // make admin account
-    app.patch("/users/admin/:id", verifyToken, async (req, res) => {
-      const id = req.params.id;
-      const query = { _id: new ObjectId(id) };
-      console.log(query);
-      const updateDocument = {
-        $set: {
-          role: "admin",
-        },
-      };
-      const result = await userCollection.updateOne(query, updateDocument);
-      console.log(result);
-      res.send(result);
-    });
+    app.patch(
+      "/users/admin/:id",
+      verifyToken,
+      verifyAdmin,
+      async (req, res) => {
+        const id = req.params.id;
+        const query = { _id: new ObjectId(id) };
+        console.log(query);
+        const updateDocument = {
+          $set: {
+            role: "admin",
+          },
+        };
+        const result = await userCollection.updateOne(query, updateDocument);
+        console.log(result);
+        res.send(result);
+      }
+    );
     // delete users
-    app.delete("/users/:id", verifyToken, async (req, res) => {
+    app.delete("/users/:id", verifyToken, verifyAdmin, async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const result = await userCollection.deleteOne(query);
