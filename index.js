@@ -73,7 +73,6 @@ async function run() {
     //get all users collection
     app.get("/users", verifyToken, verifyAdmin, async (req, res) => {
       const users = await userCollection.find().toArray();
-      console.log(users);
       res.send(users);
     });
     // user collection API
@@ -137,6 +136,35 @@ async function run() {
       const menu = await menuCollection.find().toArray();
       res.send(menu);
     });
+    app.patch("/menu/:id", verifyToken, verifyAdmin, async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const updateDocument = {
+        $set: {
+          price: req.body.price,
+        },
+      };
+      const result = await menuCollection.updateOne(query, updateDocument);
+      res.send(result);
+    });
+    // menu post in the server
+
+    app.post("/menu", verifyToken, verifyAdmin, async (req, res) => {
+      const menuItem = req.body;
+      const result = await menuCollection.insertOne(menuItem);
+      res.send(result);
+    });
+
+    // delete menu item
+
+    app.delete("/menu/:id", verifyToken, verifyAdmin, async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await menuCollection.deleteOne(query);
+      res.send(result);
+    });
+    // update menu item
+
     // reviews
     app.get("/reviews", async (req, res) => {
       const review = await reviewCollection.find().toArray();
